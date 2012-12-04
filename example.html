@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <title>Reuleaux Gender/Orientation Selector</title>
+
+    <meta charset="utf-8">
+
+    <style>
+      body {
+        background-image: url("bg.png");
+      }
+
+      .container {
+        margin-top: 100px;
+        text-align: center;
+      }
+
+      .selectors {
+        margin: 0 auto;
+        width: 430px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <div class="selectors">
+        <p>
+        Use the selectors below to describe your gender identity and sexual preference of gender.
+        </p>
+
+        <div id="genderTriField" style="float: left"></div>
+        <input type="hidden" id="genderVal" value="" />
+        <input type="hidden" id="genderXPos" value="" />
+        <input type="hidden" id="genderYPos" value="" />
+        <div id="sexualityTriField"></div>
+        <input type="hidden" id="sexualityVal" value="" />
+        <input type="hidden" id="sexualityXPos" value="" />
+        <input type="hidden" id="sexualityYPos" value="" />
+      </div>
+
+      <div id="output">
+      </div>
+    </div>
+
+    <script src='raphael-min.js'></script>
+    <script src='reuleaux-selectors.js'></script>
+  </body>
+</html>
