@@ -3,6 +3,36 @@ function pointEqual(x, y, x2, y2) {
           y >= y2 - 0.00005 && y <= y2 + 0.00005);
 }
 
+function reuleauxPointAtAngle(x, y, r, angle) {
+  r = r || 1;
+
+  var cir_r = 2*r*r*(1-Math.cos(2/3*Math.PI));
+  cir_r = Math.sqrt(cir_r);
+
+  var points = getPoints(x, y, r);
+
+  // Determine point from angle
+  var focal = 0;
+  var constrainedStartAngle = angle % (Math.PI*2);
+  if (constrainedStartAngle < 0) {
+    constrainedStartAngle += Math.PI*2;
+  }
+  if (constrainedStartAngle >= (Math.PI * 3 / 2) && constrainedStartAngle <= (Math.PI * 2)) {
+    focal = 1;
+  }
+  else if (constrainedStartAngle >= 0.0 && constrainedStartAngle <= (Math.PI / 6)) {
+    focal = 1;
+  }
+  else if (constrainedStartAngle >= (Math.PI / 6) && constrainedStartAngle <= (Math.PI * 5 / 6)) {
+    focal = 0;
+  }
+  else {
+    focal = 2;
+  }
+
+  return intersectCircle(points[focal], cir_r, x, y, x + cir_r * Math.cos(angle), y + cir_r * Math.sin(angle))[0];
+}
+
 function getAreaPoints(x, y, r, ir, areas, paper) {
   var ret = Raphael.newPathBuilder();
 
@@ -13,6 +43,7 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
   for (var i = 0; i < areas.count; i++) {
     var knob = areas[i];
     knob.intersections = new Array();
+    knob.pointsRejected = false;
   }
 
   for (var i = 0; i < areas.count; i++) {
@@ -65,6 +96,10 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
       var kx2 = knob2.x + x;
       var ky2 = knob2.y + y;
       var r2  = knob2.radius;
+      if (circleContainsCircle(kx, ky, kr, kx2, ky2, r2)) {
+        knob2.pointsRejected = true;
+      }
+
       var points = intersectCircleWithCircle(kx, ky, kr, kx2, ky2, r2);
       if (points) {
         for (key in points) {
@@ -83,6 +118,10 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
             intersection2.circle = i;
             intersection2.angle = getAngle(knob2.x+x, knob2.y+y, point.x, point.y);
             knob2.intersections.push(intersection2);
+          }
+          else {
+            knob.pointsRejected = true;
+            knob2.pointsRejected = true;
           }
         }
       }
@@ -108,6 +147,9 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
           intersection2.angle = getAngle(x, y, point.x, point.y);
           intersections.push(intersection2);
         }
+        else {
+          knob.pointsRejected = true;
+        }
       }
     }
   }
@@ -116,6 +158,7 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
   var findNextRing = function() {
     // Find a starting place
     var startingArea = -1;
+    var startingPoint;
     for (var i = 0; i < areas.count; i++) {
       var knob = areas[i];
       var hasIntersections = false;
@@ -125,10 +168,11 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
         if (point.used == undefined) {
           knob.intersections[key].used = true;
           startingArea = i;
+          startingPoint = point;
           break;
         }
       }
-      if (!hasIntersections) {
+      if (!hasIntersections && !knob.pointsRejected) {
         // It's just a single circle...
         // Render the single circle
         ret.moveTo(knob.x+x, knob.y+y-knob.radius);
@@ -213,23 +257,31 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     // So, it could produce an arc in one of two directions
     // The arc should not be contained within the circle next to it
     var area = areas[startingArea];
-    var startingPoint = areas[startingArea].intersections[0];
 
     var cur_point = followPoint(startingPoint);
     var next_point = findNextPoint(startingPoint);
     var angle = cur_point.angle + 0.01;
-    var circle = areas[startingPoint.circle];
 
-    var mx = circle.x + x + circle.radius * Math.cos(angle);
-    var my = circle.y + y + circle.radius * Math.sin(angle);
+    if (startingPoint.circle == -1) {
+      var p = reuleauxPointAtAngle(x, y, r, angle);
 
-    ret.moveTo(mx, my-4);
-    ret.circleArcTo(mx, my+4, 4, 0, 1);
-    ret.circleArcTo(mx, my-4, 4, 0, 1);
-    ret.close();
-    if (circleContains(area.x+x, area.y+y, area.radius, mx, my)) {
-      // No! Swap starting point
-      startingPoint = cur_point;
+      // Running along the reuleaux should cut through the circle.
+      // If it doesn't, then we shouldn't go that direction!
+      if (!circleContains(area.x+x, area.y+y, area.radius, p.x, p.y)) {
+        // No! Swap starting point
+        startingPoint = cur_point;
+      }
+    }
+    else {
+      var circle = areas[startingPoint.circle];
+
+      var mx = circle.x + x + circle.radius * Math.cos(angle);
+      var my = circle.y + y + circle.radius * Math.sin(angle);
+
+      if (circleContains(area.x+x, area.y+y, area.radius, mx, my)) {
+        // No! Swap starting point
+        startingPoint = cur_point;
+      }
     }
 
     var ringPoints = new Array();
@@ -265,10 +317,10 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     var renderRing = function(ring) {
       for (var index in ring) {
         var point = ring[index];
-        /*    ret.moveTo(point.x, point.y-index);
-              ret.circleArcTo(point.x, point.y+index, index, 0, 1);
-              ret.circleArcTo(point.x, point.y-index, index, 0, 1);
-              ret.close();*/
+        /*ret.moveTo(point.x, point.y-index);
+        ret.circleArcTo(point.x, point.y+index, index, 0, 1);
+        ret.circleArcTo(point.x, point.y-index, index, 0, 1);
+        ret.close();//*/
       }
 
       for (var index in ring) {
@@ -297,6 +349,12 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
 function circleContains(x, y, r, px, py) {
   var d = computeDistance(x, y, px, py);
   return (d <= r + 0.00005);
+}
+
+function circleContainsCircle(x, y, r, cx, cy, cr) {
+  var d = computeDistance(x, y, cx, cy);
+
+  return (d < Math.abs(r-cr));
 }
 
 function intersectReuleauxWithCircle(x, y, r, cx, cy, cr) {
