@@ -1,5 +1,20 @@
-function getAreaPoints(x, y, r, ir, areas) {
+function pointEqual(x, y, x2, y2) {
+  return (x >= x2 - 0.00005 && x <= x2 + 0.00005 &&
+          y >= y2 - 0.00005 && y <= y2 + 0.00005);
+}
+
+function getAreaPoints(x, y, r, ir, areas, paper) {
   var ret = Raphael.newPathBuilder();
+
+  // Reuleaux edge intersections
+  var intersections = new Array();
+
+  // Each circle has an array of intersections
+  for (var i = 0; i < areas.count; i++) {
+    var knob = areas[i];
+    knob.intersections = new Array();
+  }
+
   for (var i = 0; i < areas.count; i++) {
     var knob = areas[i];
     if (knob.area.next == undefined) {
@@ -8,13 +23,290 @@ function getAreaPoints(x, y, r, ir, areas) {
 
     var kx = knob.x + x;
     var ky = knob.y + y;
-    var r = knob.radius;
-    ret.moveTo(kx, ky + r);
-    ret.circleArcTo(kx, ky - r, r, 0);
-    ret.circleArcTo(kx, ky + r, r, 0);
+    var kr = knob.radius;
+
+    var isPointGood = function(point, j) {
+      if (!reuleauxContains(x, y, r, point.x, point.y)) {
+        return false;
+      }
+
+      // Does it alreay exist?
+      if (point.circle != -1) {
+        for (key in knob.intersections) {
+          var intersection = knob.intersections[key];
+          if (pointEqual(intersection.x, intersection.y, point.x, point.y) && intersection.circle == point.circle) {
+            return false;
+          }
+        }
+      }
+
+      for (var k = 0; k < areas.count; k++) {
+        if (k == j || k == i) {
+          continue;
+        }
+
+        var knob3 = areas[k];
+        var kx3 = knob3.x + x;
+        var ky3 = knob3.y + y;
+        var r3  = knob3.radius;
+        if (circleContains(kx3, ky3, r3, point.x, point.y)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    for (var j = 0; j < areas.count; j++) {
+      if (j == i) {
+        continue;
+      }
+      var knob2 = areas[j];
+      var kx2 = knob2.x + x;
+      var ky2 = knob2.y + y;
+      var r2  = knob2.radius;
+      var points = intersectCircleWithCircle(kx, ky, kr, kx2, ky2, r2);
+      if (points) {
+        for (key in points) {
+          var point = points[key];
+          // Reject points that are contained in other circles
+          if (isPointGood(point, j)) {
+            var intersection = {};
+            intersection.x = point.x;
+            intersection.y = point.y;
+            intersection.circle = j;
+            intersection.angle = getAngle(knob.x+x, knob.y+y, point.x, point.y);
+            knob.intersections.push(intersection);
+            var intersection2 = {};
+            intersection2.x = point.x;
+            intersection2.y = point.y;
+            intersection2.circle = i;
+            intersection2.angle = getAngle(knob2.x+x, knob2.y+y, point.x, point.y);
+            knob2.intersections.push(intersection2);
+          }
+        }
+      }
+    }
+
+    // Find intersections with this area and the outer reuleaux
+    var points = intersectReuleauxWithCircle(x, y, r, kx, ky, kr);
+    if (points) {
+      for (key in points) {
+        var point = points[key];
+        // Reject points that are contained in other circles
+        if (isPointGood(point, -1)) {
+          var intersection = {};
+          intersection.x = point.x;
+          intersection.y = point.y;
+          intersection.circle = -1; // Intersects reuleaux
+          intersection.angle = getAngle(knob.x+x, knob.y+y, point.x, point.y);
+          knob.intersections.push(intersection);
+          var intersection2 = {};
+          intersection2.x = point.x;
+          intersection2.y = point.y;
+          intersection2.circle = i;
+          intersection2.angle = getAngle(x, y, point.x, point.y);
+          intersections.push(intersection2);
+        }
+      }
+    }
+  }
+
+  // Define the area
+  var findNextRing = function() {
+    // Find a starting place
+    var startingArea = -1;
+    for (var i = 0; i < areas.count; i++) {
+      var knob = areas[i];
+      for (key in knob.intersections) {
+        startingArea = i;
+        break;
+      }
+      if (startingArea != -1) {
+        break;
+      }
+    }
+
+    if (startingArea == -1) {
+      // Either entire area is covered, or none
+      return false;
+    }
+
+    var findNextPoint = function(point) {
+      var points;
+      if (point.circle == -1) {
+        // Coast down the reuleaux!
+        points = intersections;
+      }
+      else {
+        points = areas[point.circle].intersections;
+      }
+
+      var currentAngle;
+      var oldPoint = point;
+      for (key in points) {
+        var intersection = points[key];
+        if (intersection.x == point.x && intersection.y == point.y) {
+          currentAngle = intersection.angle;
+          point = intersection;
+          break;
+        }
+      }
+
+      if (oldPoint.circle == point.circle) {
+        // wtf.
+        point = oldPoint;
+      }
+
+      // Find next highest
+      var next = point;
+      var best = Math.PI * 2;
+      for (key in points) {
+        var intersection = points[key];
+        var angle = intersection.angle;
+        angle -= currentAngle;
+        if (angle <= 0.00005) {
+          angle += Math.PI * 2;
+        }
+
+        if (angle < best) {
+          next = intersection;
+          best = angle;
+        }
+      }
+
+      next.angle_diff = best;
+      return next;
+    }
+
+    var ringPoints = new Array();
+    var startingPoint = areas[startingArea].intersections[0];
+
+    ringPoints.push({x: startingPoint.x, y: startingPoint.y});
+    var currentPoint = startingPoint;
+    var last_circle = startingArea;
+    do {
+      currentPoint = findNextPoint(currentPoint);
+      if (last_circle == -1) {
+        ringPoints.push({type: "reuleaux", x: currentPoint.x, y: currentPoint.y, rx: x, ry: y, r: r});
+      }
+      else {
+        var area = areas[last_circle];
+        var largearc = 0;
+        if (currentPoint.angle_diff >= Math.PI - 0.00005) {
+          largearc = 1;
+        }
+        ringPoints.push({type: "arc", x: currentPoint.x, y: currentPoint.y, r: area.radius, l: largearc});
+      }
+      last_circle = currentPoint.circle;
+    } while (!pointEqual(currentPoint.x, currentPoint.y, startingPoint.x, startingPoint.y));
+
+    return ringPoints;
+  }
+
+  var ring = findNextRing();
+
+  for (var index in ring) {
+    var point = ring[index];
+    ret.moveTo(point.x, point.y-index);
+    ret.circleArcTo(point.x, point.y+index, index, 0, 1);
+    ret.circleArcTo(point.x, point.y-index, index, 0, 1);
+    ret.close();
+  }
+
+  for (var index in ring) {
+    var point = ring[index];
+
+    if (index == 0) {
+      ret.moveTo(point.x, point.y);
+    }
+    else if (point.type == "reuleaux") {
+      ret.reuleauxArcTo(point.rx, point.ry, point.x, point.y, point.r, 1);
+    }
+    else {
+      ret.circleArcTo(point.x, point.y, point.r, 1, point.l);
+    }
+  }
+
+  ret.close();
+
+  return ret;
+}
+
+function circleContains(x, y, r, px, py) {
+  var d = computeDistance(x, y, px, py);
+  return (d <= r + 0.00005);
+}
+
+function intersectReuleauxWithCircle(x, y, r, cx, cy, cr) {
+  var points = getPoints(x, y, r);
+
+  // Determine if line intersects any of the circles that make
+  // up the Reuleaux.
+
+  // Find the radius of the outer circles
+  var cir_r = 2 * r * r * (1 - Math.cos((2/3) * Math.PI));
+  cir_r = Math.sqrt(cir_r);
+
+  // Clip line with every circle that makes up the Reuleaux
+  var intersectionPoints = new Array();
+  for (var i = 0; i < 3; i++) {
+    var tmpline = intersectCircleWithCircle(points[i].x, points[i].y, cir_r, cx, cy, cr);
+    if (tmpline) {
+      for (index in tmpline) {
+        intersectionPoints.push(tmpline[index]);
+      }
+    }
+  }
+
+  // Check to see that all points are within the reuleaux
+  var ret = new Array();
+  for (index in intersectionPoints) {
+    if (reuleauxContains(x, y, r, intersectionPoints[index].x, intersectionPoints[index].y)) {
+      ret.push(intersectionPoints[index]);
+    }
   }
 
   return ret;
+}
+
+function intersectCircleWithCircle(x1, y1, r1, x2, y2, r2) {
+  var d = computeDistance(x1, y1, x2, y2);
+
+  if (d > (r1+r2) || d < Math.abs(r1-r2) || (d == 0 && r1 == r2)) {
+    // Either the circles do not overlap, or one is contained within the other.
+    return false;
+  }
+
+  var points = new Array();
+
+  // The distance from the first circle and the midpoint (cx, cy)
+  var a = ((r1*r1) - (r2*r2) + (d*d)) / (2*d);
+
+  // Midpoint between two circles, the normal of this line contains both points
+  var cx = x1 + (a * (x2 - x1) / d);
+  var cy = y1 + (a * (y2 - y1) / d);
+
+  if (d > (r1+r2-0.00005) && d < (r1+r2+0.00005)) {
+    // One point: the midpoint is the point which both circles touch
+    var point = {x: cx, y: cy};
+    points.push(point);
+    return points;
+  }
+
+  // Two points
+
+  // The distance between the midpoint (cx, cy) and the intersection points
+  var h = Math.sqrt((r1*r1) - (a*a));
+
+  // Each intersection point
+  var p1 = {x: cx + (h * (y2 - y1) / d), y: cy - (h * (x2 - x1) / d)};
+  var p2 = {x: cx - (h * (y2 - y1) / d), y: cy + (h * (x2 - x1) / d)};
+
+  points.push(p1);
+  points.push(p2);
+
+  return points;
 }
 
 function computeDistance(x, y, x2, y2) {
@@ -137,7 +429,7 @@ function PathBuilder() {
     this.y = y;
   }
 
-  this.circleArcTo = function(x, y, r, sweep) {
+  this.circleArcTo = function(x, y, r, sweep, largearc) {
     if (r == undefined) {
       r = 1;
     }
@@ -145,7 +437,11 @@ function PathBuilder() {
     if (sweep == undefined) {
       sweep = 0;
     }
-    this.pathstr += "A" + [r, r, 0, 0, sweep, x, y].join(',');
+
+    if (largearc == undefined) {
+      largearc = 0;
+    }
+    this.pathstr += "A" + [r, r, 0, largearc, sweep, x, y].join(',');
 
     this.x = x;
     this.y = y;
@@ -916,11 +1212,6 @@ function reuleauxContains(x, y, r, checkx, checky) {
   return ret;
 }
 
-function circleContains(x, y, r, checkx, checky) {
-  // distance to center should be less than or equal to radius
-  return computeDistance(x, y, checkx, checky) <= r + 0.00005;
-}
-
 // Returns: The equivalent point on a triangle that matches the Reuleaux.
 // newx,newy: The point.
 // x,y: The center of the Reuleaux
@@ -1170,7 +1461,11 @@ window.onload = function() {
       output.area.remove();
     }
 
-    var areapath = getAreaPoints(output.sex_ring.center.x, output.sex_ring.center.y, 98, 17, knobs);
-    output.area = output.paper.pathFromBuilder(areapath);
+    var areapath = getAreaPoints(output.sex_ring.center.x, output.sex_ring.center.y, 98, 17, knobs, output.paper);
+    output.area = output.paper.pathFromBuilder(areapath).attr({fill: "#fff", "fill-opacity": 0.5, stroke: "#c359a4"});
+  }
+
+  gender.selector.updated = function(x,y) {
+    sexuality.selector.updated(sexuality.selector.knobs);
   }
 }
