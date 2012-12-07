@@ -201,6 +201,14 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
         // Don't render it, it is outside the border completely.
         knob.pointsRejected = true;
       }
+      if (reuleauxContains(x, y, ir, knob.x+x, knob.y+y) &&
+          !circleContainsReuleaux(knob.x+x, knob.y+y, knob.radius, x, y, ir)) {
+        // If the inner Reuleaux contains the center of the circle,
+        // and the circle does not contain the inner Reuleaux,
+        // but does not intersect, then it is contained within the
+        // inner Reuleaux... do not render
+        knob.pointsRejected = true;
+      }
     }
   }
 
