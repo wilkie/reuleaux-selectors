@@ -42,6 +42,10 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
   var innerHasPoints = false;
   var innerContained = false;
 
+  var outerPointsRejected = false;
+  var outerHasPoints = false;
+  var outerContained = false;
+
   // Each circle has an array of intersections
   for (var i = 0; i < areas.count; i++) {
     var knob = areas[i];
@@ -62,6 +66,9 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
 
     if (circleContainsReuleaux(kx, ky, kr, x, y, ir)) {
       innerContained = true;
+    }
+    if (circleContainsReuleaux(kx, ky, kr, x, y, r)) {
+      outerContained = true;
     }
 
     var isPointGood = function(point, j) {
@@ -175,11 +182,17 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
           if (point.inner) {
             innerHasPoints = true;
           }
+          else {
+            outerHasPoints = true;
+          }
         }
         else {
           knob.pointsRejected = true;
           if (point.inner) {
             innerPointsRejected = true;
+          }
+          else {
+            outerPointsRejected = true;
           }
         }
       }
@@ -404,6 +417,10 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     }
 
     renderRing(ring);
+  }
+
+  if (outerContained || (outerPointsRejected && !outerHasPoints)) {
+    ret.pathstr = getReuleauxPathString(x, y, r, true);
   }
 
   // Did the inner Reuleaux get consumed?
