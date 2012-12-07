@@ -334,6 +334,7 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
       var rr = r;
       if (cur_point.inner) {
         rr = ir;
+        angle = cur_point.angle - 0.01;
       }
       var p = reuleauxPointAtAngle(x, y, rr, angle);
 
