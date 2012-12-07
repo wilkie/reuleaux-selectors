@@ -152,13 +152,11 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     var points_inner = intersectReuleauxWithCircle(x, y, ir, kx, ky, kr);
     if (points_inner) {
       if (!points) {
-        points = points_inner;
+        points = new Array();
       }
-      else {
-        for (key in points_inner) {
-          points_inner[key].inner = true;
-          points.push(points_inner[key]);
-        }
+      for (key in points_inner) {
+        points_inner[key].inner = true;
+        points.push(points_inner[key]);
       }
     }
     if (points) {
@@ -195,6 +193,13 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
             outerPointsRejected = true;
           }
         }
+      }
+    }
+    else {
+      // Hmm, it doesn't intersect with the border, is it within the border?
+      if (!reuleauxContains(x, y, r, knob.x+x, knob.y+y)) {
+        // Don't render it, it is outside the border completely.
+        knob.pointsRejected = true;
       }
     }
   }
@@ -478,10 +483,16 @@ function intersectReuleauxWithCircle(x, y, r, cx, cy, cr) {
 
   // Check to see that all points are within the reuleaux
   var ret = new Array();
+  var hasPoints = false;
   for (index in intersectionPoints) {
     if (reuleauxContains(x, y, r, intersectionPoints[index].x, intersectionPoints[index].y)) {
+      hasPoints = true;
       ret.push(intersectionPoints[index]);
     }
+  }
+
+  if (!hasPoints) {
+    return false;
   }
 
   return ret;
