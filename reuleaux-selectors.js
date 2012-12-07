@@ -118,9 +118,23 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     var startingArea = -1;
     for (var i = 0; i < areas.count; i++) {
       var knob = areas[i];
+      var hasIntersections = false;
       for (key in knob.intersections) {
-        startingArea = i;
-        break;
+        hasIntersections = true;
+        var point = knob.intersections[key];
+        if (point.used == undefined) {
+          knob.intersections[key].used = true;
+          startingArea = i;
+          break;
+        }
+      }
+      if (!hasIntersections) {
+        // It's just a single circle...
+        // Render the single circle
+        ret.moveTo(knob.x+x, knob.y+y-knob.radius);
+        ret.circleArcTo(knob.x+x, knob.y+y+knob.radius, knob.radius, 0, 1); 
+        ret.circleArcTo(knob.x+x, knob.y+y-knob.radius, knob.radius, 0, 1); 
+        ret.close();
       }
       if (startingArea != -1) {
         break;
@@ -130,6 +144,29 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
     if (startingArea == -1) {
       // Either entire area is covered, or none
       return false;
+    }
+
+    // Finds the corresponding intersection point in the adjacent region.
+    var followPoint = function(point) {
+      var points;
+      if (point.circle == -1) {
+        // Coast down the reuleaux!
+        points = intersections;
+      }
+      else {
+        points = areas[point.circle].intersections;
+      }
+
+      for (key in points) {
+        var intersection = points[key];
+        if (pointEqual(intersection.x, intersection.y, point.x, point.y)) {
+          points[key].used = true;
+          point = intersection;
+          break;
+        }
+      }
+
+      return point;
     }
 
     var findNextPoint = function(point) {
@@ -142,16 +179,9 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
         points = areas[point.circle].intersections;
       }
 
-      var currentAngle;
       var oldPoint = point;
-      for (key in points) {
-        var intersection = points[key];
-        if (intersection.x == point.x && intersection.y == point.y) {
-          currentAngle = intersection.angle;
-          point = intersection;
-          break;
-        }
-      }
+      point = followPoint(point);
+      var currentAngle = point.angle;
 
       if (oldPoint.circle == point.circle) {
         // wtf.
@@ -179,13 +209,36 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
       return next;
     }
 
-    var ringPoints = new Array();
+    // Determine starting direction by choosing the correct circle
+    // So, it could produce an arc in one of two directions
+    // The arc should not be contained within the circle next to it
+    var area = areas[startingArea];
     var startingPoint = areas[startingArea].intersections[0];
+
+    var cur_point = followPoint(startingPoint);
+    var next_point = findNextPoint(startingPoint);
+    var angle = cur_point.angle + 0.01;
+    var circle = areas[startingPoint.circle];
+
+    var mx = circle.x + x + circle.radius * Math.cos(angle);
+    var my = circle.y + y + circle.radius * Math.sin(angle);
+
+    ret.moveTo(mx, my-4);
+    ret.circleArcTo(mx, my+4, 4, 0, 1);
+    ret.circleArcTo(mx, my-4, 4, 0, 1);
+    ret.close();
+    if (circleContains(area.x+x, area.y+y, area.radius, mx, my)) {
+      // No! Swap starting point
+      startingPoint = cur_point;
+    }
+
+    var ringPoints = new Array();
 
     ringPoints.push({x: startingPoint.x, y: startingPoint.y});
     var currentPoint = startingPoint;
     var last_circle = startingArea;
     do {
+      last_circle = currentPoint.circle;
       currentPoint = findNextPoint(currentPoint);
       if (last_circle == -1) {
         ringPoints.push({type: "reuleaux", x: currentPoint.x, y: currentPoint.y, rx: x, ry: y, r: r});
@@ -198,37 +251,45 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
         }
         ringPoints.push({type: "arc", x: currentPoint.x, y: currentPoint.y, r: area.radius, l: largearc});
       }
-      last_circle = currentPoint.circle;
     } while (!pointEqual(currentPoint.x, currentPoint.y, startingPoint.x, startingPoint.y));
 
     return ringPoints;
   }
 
-  var ring = findNextRing();
+  while(true) {
+    var ring = findNextRing();
+    if (!ring) {
+      break;
+    }
 
-  for (var index in ring) {
-    var point = ring[index];
-    ret.moveTo(point.x, point.y-index);
-    ret.circleArcTo(point.x, point.y+index, index, 0, 1);
-    ret.circleArcTo(point.x, point.y-index, index, 0, 1);
-    ret.close();
+    var renderRing = function(ring) {
+      for (var index in ring) {
+        var point = ring[index];
+        /*    ret.moveTo(point.x, point.y-index);
+              ret.circleArcTo(point.x, point.y+index, index, 0, 1);
+              ret.circleArcTo(point.x, point.y-index, index, 0, 1);
+              ret.close();*/
+      }
+
+      for (var index in ring) {
+        var point = ring[index];
+
+        if (index == 0) {
+          ret.moveTo(point.x, point.y);
+        }
+        else if (point.type == "reuleaux") {
+          ret.reuleauxArcTo(point.rx, point.ry, point.x, point.y, point.r, 1);
+        }
+        else {
+          ret.circleArcTo(point.x, point.y, point.r, 1, point.l);
+        }
+      }
+
+      ret.close();
+    }
+
+    renderRing(ring);
   }
-
-  for (var index in ring) {
-    var point = ring[index];
-
-    if (index == 0) {
-      ret.moveTo(point.x, point.y);
-    }
-    else if (point.type == "reuleaux") {
-      ret.reuleauxArcTo(point.rx, point.ry, point.x, point.y, point.r, 1);
-    }
-    else {
-      ret.circleArcTo(point.x, point.y, point.r, 1, point.l);
-    }
-  }
-
-  ret.close();
 
   return ret;
 }
