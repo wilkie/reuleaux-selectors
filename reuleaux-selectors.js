@@ -386,6 +386,7 @@ function getAreaPoints(x, y, r, ir, areas, paper) {
         ringPoints.push({type: "reuleaux", x: currentPoint.x, y: currentPoint.y, rx: x, ry: y, r: rr});
       }
       else {
+        // We are filling this circle in as a part of this ring.
         var area = areas[last_circle];
         var largearc = 0;
         if (currentPoint.angle_diff >= Math.PI - 0.00005) {
@@ -596,43 +597,34 @@ function PathBuilder() {
 
     var points = getPoints(x,y,r);
 
+    var angles = new Array();
+    for (var index in points) {
+      angles[index] = getAngle(x, y, points[index].x, points[index].y);
+    }
+
     // Determine start point from angle
-    var start_focal = 0;
+    var start_focal = 1;
     var constrainedStartAngle = startAngle % (Math.PI*2);
     if (constrainedStartAngle < 0) {
       constrainedStartAngle += Math.PI*2;
     }
-    if (constrainedStartAngle >= (Math.PI * 3 / 2) && constrainedStartAngle <= (Math.PI * 2)) {
-      start_focal = 1;
-    }
-    else if (constrainedStartAngle >= 0.0 && constrainedStartAngle <= (Math.PI / 6)) {
-      start_focal = 1;
-    }
-    else if (constrainedStartAngle >= (Math.PI / 6) && constrainedStartAngle <= (Math.PI * 5 / 6)) {
-      start_focal = 0;
-    }
-    else {
-      start_focal = 2;
+    for (var index in points) {
+      if (constrainedStartAngle <= angles[index]) {
+        start_focal = (index + 3 - 1) % 3;
+      }
     }
 
     var startPoint = intersectCircle(points[start_focal], cir_r, x, y, x + cir_r * Math.cos(startAngle), y + cir_r * Math.sin(startAngle))[0];
 
-    var end_focal = 0;
+    var end_focal = 1;
     var constrainedEndAngle = endAngle % (Math.PI*2);
     if (constrainedEndAngle < 0) {
       constrainedEndAngle += Math.PI*2;
     }
-    if (constrainedEndAngle >= (Math.PI * 3 / 2) && constrainedEndAngle <= (Math.PI * 2)) {
-      end_focal = 1;
-    }
-    else if (constrainedEndAngle >= 0.0 && constrainedEndAngle <= (Math.PI / 6)) {
-      end_focal = 1;
-    }
-    else if (constrainedEndAngle >= (Math.PI / 6) && constrainedEndAngle <= (Math.PI * 5 / 6)) {
-      end_focal = 0;
-    }
-    else {
-      end_focal = 2;
+    for (var index in points) {
+      if (constrainedEndAngle <= angles[index]) {
+        end_focal = (index + 3 - 1) % 3;
+      }
     }
 
     var endPoint = intersectCircle(points[end_focal], cir_r, x, y, x + cir_r * Math.cos(endAngle), y + cir_r * Math.sin(endAngle))[0];
@@ -640,9 +632,19 @@ function PathBuilder() {
     var pathstr = "";
     var sweep = 0;
     var i = start_focal;
+
+    var amount = 0;
+    if (start_focal == end_focal) {
+      if (Math.abs(startAngle - endAngle) > Math.PI) {
+        amount = 3;
+      }
+      else {
+        amount = 0;
+      }
+    }
     if (endAngle < startAngle) {
       var sweep = 1;
-      var i = end_focal;
+      var i = end_focal + 3;
       while (((i+3) % 3) != start_focal) {
         var focal = points[(i+1)%3];
         this.circleArcTo(focal.x, focal.y, cir_r, sweep);
@@ -652,9 +654,9 @@ function PathBuilder() {
     }
     else {
       var sweep = 0;
-      var i = start_focal;
-      while (((i+3) % 3) != end_focal) {
-        var focal = points[(i-1+3)%3];
+      var i = start_focal + 3;
+      while ((i % 3) != end_focal) {
+        var focal = points[(i-1)%3];
         this.circleArcTo(focal.x, focal.y, cir_r, sweep);
         i++;
       }
@@ -1699,8 +1701,6 @@ window.onload = function() {
 
     var areapath = getAreaPoints(output.sex_ring.center.x, output.sex_ring.center.y, 98, 17, knobs, output.paper);
     output.area = output.paper.pathFromBuilder(areapath).attr({fill: "#fff", "fill-opacity": 0.5, stroke: "#c359a4"});
-    output.outer_border.toFront();
-    output.inner_border.toFront();
   }
 
   gender.selector.updated = function(x,y) {
