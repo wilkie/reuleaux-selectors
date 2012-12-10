@@ -828,6 +828,144 @@ function getReuleauxPathString(x, y, r, reverse) {
   return pathstr;
 }
 
+function agenderSymbol(x, y, r) {
+  r = r || 1;
+
+  var symbol = Raphael.newPathBuilder();
+  var points = getPoints(x, y, r);
+
+  var px = x;
+  var py = y;
+
+  var radius = 4;
+
+  symbol.moveTo(px, py+radius);
+  symbol.circleArcTo(px, py-radius, radius);
+  symbol.circleArcTo(px, py+radius, radius);
+  symbol.close();
+
+  return symbol;
+}
+
+function polySymbol(x, y, r) {
+  r = r || 1;
+
+  var symbol = Raphael.newPathBuilder();
+  var points = getPoints(x, y, r);
+
+  var px = points[0].x;
+  var py = points[0].y + 17;
+
+  var radius = 3;
+  var crossl = 6;
+  var arrowl = 5;
+
+  symbol.moveTo(px, py+radius);
+  symbol.circleArcTo(px, py-radius, radius);
+  symbol.circleArcTo(px, py+radius, radius);
+  symbol.close();
+
+  // Bottom Female Cross
+  symbol.moveTo(px + radius * Math.cos(Math.PI / 2),
+                py + radius * Math.sin(Math.PI / 2));
+  symbol.lineTo(px + (radius + crossl) * Math.cos(Math.PI / 2),
+                py + (radius + crossl) * Math.sin(Math.PI / 2));
+  symbol.moveTo(px - (crossl / 2) + radius * Math.cos(Math.PI / 2),
+                py + (crossl / 2) + radius * Math.sin(Math.PI / 2));
+  symbol.lineTo(px + (crossl / 2) + radius * Math.cos(Math.PI / 2),
+                py + (crossl / 2) + radius * Math.sin(Math.PI / 2));
+
+  // Top-left Trigender Arrow
+  symbol.moveTo(px + radius * Math.cos(5 * Math.PI / 4),
+                py + radius * Math.sin(5 * Math.PI / 4));
+  symbol.lineTo(px + (crossl + radius) * Math.cos(5 * Math.PI / 4),
+                py + (crossl + radius) * Math.sin(5 * Math.PI / 4));
+  symbol.moveTo(symbol.x + arrowl * Math.cos(0),
+                symbol.y + arrowl * Math.sin(0));
+  symbol.lineTo(px + (crossl + radius) * Math.cos(5 * Math.PI / 4),
+                py + (crossl + radius) * Math.sin(5 * Math.PI / 4));
+  symbol.lineTo(symbol.x + arrowl * Math.cos( Math.PI / 2),
+                symbol.y + arrowl * Math.sin( Math.PI / 2));
+  symbol.moveTo(px + (crossl/3 + radius) * Math.cos(5 * Math.PI / 4),
+                py + (crossl/3 + radius) * Math.sin(5 * Math.PI / 4));
+  symbol.moveTo(symbol.x + (crossl/2) * Math.cos(3 * Math.PI / 4),
+                symbol.y + (crossl/2) * Math.sin(3 * Math.PI / 4));
+  symbol.lineTo(symbol.x + crossl * Math.cos(7 * Math.PI / 4),
+                symbol.y + crossl * Math.sin(7 * Math.PI / 4));
+
+  // Top-right male arrow
+  symbol.moveTo(px + radius * Math.cos(7 * Math.PI / 4),
+                py + radius * Math.sin(7 * Math.PI / 4));
+  symbol.lineTo(px + (crossl + radius) * Math.cos(7 * Math.PI / 4),
+                py + (crossl + radius) * Math.sin(7 * Math.PI / 4));
+  symbol.moveTo(symbol.x + arrowl * Math.cos(Math.PI),
+                symbol.y + arrowl * Math.sin(Math.PI));
+  symbol.lineTo(px + (crossl + radius) * Math.cos(7 * Math.PI / 4),
+                py + (crossl + radius) * Math.sin(7 * Math.PI / 4));
+  symbol.lineTo(symbol.x + arrowl * Math.cos( Math.PI / 2),
+                symbol.y + arrowl * Math.sin( Math.PI / 2));
+  return symbol;
+}
+
+function femaleSymbol(x, y, r) {
+  r = r || 1;
+
+  var symbol = Raphael.newPathBuilder();
+  var points = getPoints(x, y, r);
+
+  var px = points[2].x - 15;
+  var py = points[2].y - 11;
+
+  var radius = 4;
+  var crossl = 8;
+
+  symbol.moveTo(px, py+radius);
+  symbol.circleArcTo(px, py-radius, radius);
+  symbol.circleArcTo(px, py+radius, radius);
+  symbol.close();
+  symbol.moveTo(px + radius * Math.cos(Math.PI / 2),
+                py + radius * Math.sin(Math.PI / 2));
+  symbol.lineTo(px + (radius + crossl) * Math.cos(Math.PI / 2),
+                py + (radius + crossl) * Math.sin(Math.PI / 2));
+  symbol.moveTo(px - (crossl / 2) + radius * Math.cos(Math.PI / 2),
+                py + (crossl / 2) + radius * Math.sin(Math.PI / 2));
+  symbol.lineTo(px + (crossl / 2) + radius * Math.cos(Math.PI / 2),
+                py + (crossl / 2) + radius * Math.sin(Math.PI / 2));
+
+  return symbol;
+}
+
+function maleSymbol(x, y, r) {
+  r = r || 1;
+
+  var symbol = Raphael.newPathBuilder();
+  var points = getPoints(x, y, r);
+
+  var px = points[1].x + 15;
+  var py = points[1].y - 7;
+
+  var radius = 4;
+  var length = 11;
+  var arrowl = 5.5;
+
+  symbol.moveTo(px, py+radius);
+  symbol.circleArcTo(px, py-radius, radius);
+  symbol.circleArcTo(px, py+radius, radius);
+  symbol.close();
+  symbol.moveTo(px +  radius * Math.cos(13 * Math.PI / 8),
+                py +  radius * Math.sin(13 * Math.PI / 8));
+  symbol.lineTo(px +  length * Math.cos(13 * Math.PI / 8),
+                py +  length * Math.sin(13 * Math.PI / 8));
+  symbol.moveTo(symbol.x + arrowl * Math.cos(13.5 * Math.PI / 16),
+                symbol.y + arrowl * Math.sin(13.5 * Math.PI / 16));
+  symbol.lineTo(px +  length * Math.cos(13 * Math.PI / 8),
+                py +  length * Math.sin(13 * Math.PI / 8));
+  symbol.lineTo(symbol.x + arrowl * Math.cos( 6.5 * Math.PI / 16),
+                symbol.y + arrowl * Math.sin( 6.5 * Math.PI / 16));
+
+  return symbol;
+}
+
 Raphael.fn.prettyReuleauxRing = function(x, y, r, ir, caption, labels) {
   r  = r || 1;
   ir = ir || 1;
@@ -956,10 +1094,10 @@ Raphael.fn.prettyReuleauxRing = function(x, y, r, ir, caption, labels) {
   caption_attr = {"font-size": 10, fill: "#c359a4"};
 
   ret.labels = {};
-  ret.labels.middle = this.text(x,y-2,labels.middle).attr(font_attr).attr({"stroke-width": 0.1, "font-size": 17});
-  ret.labels.top    = this.text(x-(0.01*r),17+(y-r), labels.top).attr(font_attr).attr({"stroke-width": 0.1, "font-size":18});
-  ret.labels.left   = this.text((0.30*r)+(x-r),(0.40*r)+y,labels.left).attr(font_attr);
-  ret.labels.right  = this.text((0.70*r)+x,(0.40*r)+y, labels.right).attr(font_attr);
+  ret.labels.male   = this.pathFromBuilder(maleSymbol(x, y, r)).attr({"fill-opacity": 0.0, "stroke-width": 1.4}).attr(font_attr);
+  ret.labels.female = this.pathFromBuilder(femaleSymbol(x, y, r)).attr({"fill-opacity": 0.0, "stroke-width": 1.4}).attr(font_attr);
+  ret.labels.none   = this.pathFromBuilder(agenderSymbol(x, y, r)).attr({"fill-opacity": 0.0, "stroke-width": 1.4}).attr(font_attr);
+  ret.labels.all    = this.pathFromBuilder(polySymbol(x, y, r)).attr({"fill-opacity": 0.0, "stroke-width": 1.4}).attr(font_attr);
 
   ret.caption = this.text(x,(0.9*r)+y,caption).attr(caption_attr);
   
