@@ -453,14 +453,24 @@ function circleContains(x, y, r, px, py) {
 
 function circleContainsReuleaux(x, y, r, rx, ry, rr) {
   // A circle contains a Reuleaux when the three endpoints
-  // of the Reuleaux are within the circle.
+  // of the Reuleaux are within the circle and the circle
+  // does not intersect the Reuleaux.
   var points = getPoints(rx, ry, rr);
+  var contains = true;
   for (var key in points) {
     if (!circleContains(x, y, r, points[key].x, points[key].y)) {
-      return false;
+      contains = false;
     }
   }
-  return true;
+
+  // If the circle doesn't contain the endpoints, then it must not
+  // be able to contain the whole Reuleaux.
+  if (contains == false) {
+    return false;
+  }
+
+  // Does it intersect at all?
+  return !intersectReuleauxWithCircle(rx, ry, rr, x, y, r);
 }
 
 function circleContainsCircle(x, y, r, cx, cy, cr) {
@@ -582,18 +592,11 @@ function PathBuilder() {
     var startAngle = getAngle(x, y, this.x, this.y);
     var endAngle   = getAngle(x, y, px, py);
 
-    if (startAngle > endAngle) {
+    // Make endAngle relative to startAngle
+    endAngle = startAngle - endAngle;
+    if (endAngle < 0) {
       endAngle += Math.PI * 2;
     }
-
-    if (reverse) {
-      var tmp = startAngle;
-      startAngle = endAngle;
-      endAngle = tmp;
-    }
-
-    var cir_r = 2*r*r*(1-Math.cos(2/3*Math.PI));
-    cir_r = Math.sqrt(cir_r);
 
     var points = getPoints(x,y,r);
 
@@ -603,64 +606,59 @@ function PathBuilder() {
     }
 
     // Determine start point from angle
-    var start_focal = 1;
+    var start_focal = 0;
     var constrainedStartAngle = startAngle % (Math.PI*2);
     if (constrainedStartAngle < 0) {
       constrainedStartAngle += Math.PI*2;
     }
     for (var index in points) {
       if (constrainedStartAngle <= angles[index]) {
-        start_focal = (index + 3 - 1) % 3;
+        start_focal = (index + 1) % 3;
       }
     }
 
-    var startPoint = intersectCircle(points[start_focal], cir_r, x, y, x + cir_r * Math.cos(startAngle), y + cir_r * Math.sin(startAngle))[0];
-
-    var end_focal = 1;
-    var constrainedEndAngle = endAngle % (Math.PI*2);
-    if (constrainedEndAngle < 0) {
-      constrainedEndAngle += Math.PI*2;
-    }
-    for (var index in points) {
-      if (constrainedEndAngle <= angles[index]) {
-        end_focal = (index + 3 - 1) % 3;
-      }
+    if (reverse) {
+      start_focal = (start_focal + 3 - 1) % 3;
     }
 
-    var endPoint = intersectCircle(points[end_focal], cir_r, x, y, x + cir_r * Math.cos(endAngle), y + cir_r * Math.sin(endAngle))[0];
+    // Get angle to focal
+    var amountToFocal = startAngle - angles[start_focal];
+    if (amountToFocal < 0) {
+      amountToFocal += Math.PI * 2;
+    }
 
-    var pathstr = "";
-    var sweep = 0;
+    if (reverse) {
+      amountToFocal = Math.PI * 2 - amountToFocal;
+      endAngle = Math.PI * 2 - endAngle;
+    }
+
+    // Draw arcs
+    var cir_r = 2*r*r*(1-Math.cos(2/3*Math.PI));
+    cir_r = Math.sqrt(cir_r);
+
+    var curAngle = 0;
     var i = start_focal;
-
-    var amount = 0;
-    if (start_focal == end_focal) {
-      if (Math.abs(startAngle - endAngle) > Math.PI) {
-        amount = 3;
+    var diffAngle = amountToFocal;
+    if (reverse) {
+      curAngle = endAngle;
+      while (curAngle - diffAngle > 0) {
+        var focal = points[i];
+        this.circleArcTo(focal.x, focal.y, cir_r, 1);
+        curAngle -= diffAngle;
+        diffAngle = (Math.PI * 2) / 3;
+        i = (i + 3 - 1) % 3;
       }
-      else {
-        amount = 0;
-      }
-    }
-    if (endAngle < startAngle) {
-      var sweep = 1;
-      var i = end_focal + 3;
-      while (((i+3) % 3) != start_focal) {
-        var focal = points[(i+1)%3];
-        this.circleArcTo(focal.x, focal.y, cir_r, sweep);
-        i--;
-      }
-      this.circleArcTo(startPoint.x, startPoint.y, cir_r, sweep);
+      this.circleArcTo(px, py, cir_r, 1);
     }
     else {
-      var sweep = 0;
-      var i = start_focal + 3;
-      while ((i % 3) != end_focal) {
-        var focal = points[(i-1)%3];
-        this.circleArcTo(focal.x, focal.y, cir_r, sweep);
-        i++;
+      while (curAngle + diffAngle < endAngle) {
+        var focal = points[i];
+        this.circleArcTo(focal.x, focal.y, cir_r, 0);
+        curAngle += diffAngle;
+        diffAngle = (Math.PI * 2) / 3;
+        i = (i + 1) % 3;
       }
-      this.circleArcTo(endPoint.x, endPoint.y, cir_r, sweep);
+      this.circleArcTo(px, py, cir_r, 0);
     }
 
     this.x = x;
