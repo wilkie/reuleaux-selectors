@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <title>Reuleaux Gender/Orientation Selector</title>
+
+    <meta charset="utf-8">
+
+    <style>
+      body {
+        background-image: url("bg.png");
+      }
+
+      .container {
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      .selectors {
+        margin: 0 auto;
+        width: 500px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <div class="selectors">
+        <p>
+        <strong>Gender Identity</strong>: 
+        Simply drag the point to indicate your gender identity.
+        </p>
+
+        <p>
+        <strong>Sexuality Identity</strong>:
+        Sexual orientation selector can select areas that indicate attraction to the given gender identity. Drag the middle circle out, use smaller circle to expand area. To remove a circle, shrink it until very small. As you drag circles out of the middle area, new circles can be added. Add as many as you would like.
+        </p>
+
+        <hr />
+
+        <p>
+        Use the selectors below to describe your gender identity and sexual preference of gender.
+        </p>
+
+        <div id="genderTriField" style="float: left"></div>
+        <input type="hidden" id="genderVal" value="" />
+        <input type="hidden" id="genderXPos" value="" />
+        <input type="hidden" id="genderYPos" value="" />
+        <div id="sexualityTriField"></div>
+        <input type="hidden" id="sexualityVal" value="" />
+        <input type="hidden" id="sexualityXPos" value="" />
+        <input type="hidden" id="sexualityYPos" value="" />
+      </div>
+
+      <hr style="width: 420px" />
+
+      <div id="output">
+      </div>
+    </div>
+
+    <script src='raphael-min.js'></script>
+    <script src='reuleaux-selectors.js'></script>
+  </body>
+</html>
