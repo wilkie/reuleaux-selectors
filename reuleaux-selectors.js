@@ -1838,8 +1838,4 @@ window.onload = function() {
     var areapath = getAreaPoints(output.sex_ring.center.x, output.sex_ring.center.y, 98, 17, knobs, output.paper);
     output.area = output.paper.pathFromBuilder(areapath).attr({fill: "#fff", "fill-opacity": 0.5, stroke: "#c359a4"});
   }
-
-  gender.selector.updated = function(x,y) {
-    sexuality.selector.updated(sexuality.selector.knobs);
-  }
 }
